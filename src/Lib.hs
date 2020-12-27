@@ -10,6 +10,7 @@ simpleMapReduce
   -> c          -- result
 simpleMapReduce mapFunc reduceFunc = reduceFunc . map mapFunc
 
+
 parMapReduce 
   :: (a -> b)   -- map function
   -> ([b] -> c) -- reduce function

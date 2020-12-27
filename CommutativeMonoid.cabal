@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 90d79d8840eba40d4e7bbc1752142853dc45a98d1005f9e07f703f7635fe8f74
+-- hash: 171688e304383fa87532754d3e348d57e35d82927989c287d6c5c83ed12dc6a9
 
 name:           CommutativeMonoid
 version:        0.1.0.0
@@ -33,6 +33,7 @@ library
       src
   build-depends:
       base >=4.7 && <5
+    , ghc-prim
     , parallel
   default-language: Haskell2010
 
@@ -46,6 +47,7 @@ executable CommutativeMonoid
   build-depends:
       CommutativeMonoid
     , base >=4.7 && <5
+    , ghc-prim
     , parallel
   default-language: Haskell2010
 
@@ -53,7 +55,7 @@ test-suite CommutativeMonoid-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
-      ComMonSpec
+      MonoidSpec
       TestUtils
       Paths_CommutativeMonoid
   hs-source-dirs:
@@ -63,6 +65,7 @@ test-suite CommutativeMonoid-test
       CommutativeMonoid
     , QuickCheck
     , base >=4.7 && <5
+    , ghc-prim
     , hspec
     , parallel
   default-language: Haskell2010

@@ -7,6 +7,6 @@ import           Test.QuickCheck       hiding (shrink)
 
 -- redefine `it` to use a sample with 1000 elements
 it :: (HasCallStack, Example a) => String -> a -> SpecWith (Arg a)
-it label action = modifyMaxSuccess (const 1000) $ HS.it label action
+it label action = modifyMaxSuccess (const 10000) $ HS.it label action
 
 
