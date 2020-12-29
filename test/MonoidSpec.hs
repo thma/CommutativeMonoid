@@ -15,19 +15,14 @@ instance Arbitrary Natural where
     NonNegative nonNegative <- arbitrary
     return $ naturalFromInteger nonNegative
 
-(⊕) :: String -> String -> String
-(⊕) a b = a ++ b
-
-
-
 -- see https://stackoverflow.com/questions/42764847/is-there-a-there-exists-quantifier-in-quickcheck
 exists :: (Show a, Arbitrary a) 
        => (a -> Bool) -> Property
-exists = forSome $ resize 100 arbitrary
+exists = forSome $ resize 10000 arbitrary
     
 forSome :: (Show a, Testable prop)
         => Gen a -> (a -> prop) -> Property
-forSome gen prop = once $ disjoin $ replicate 100 $ forAll gen prop
+forSome gen prop = once $ disjoin $ replicate 10000 $ forAll gen prop
 
 spec :: Spec
 spec = do
@@ -66,13 +61,13 @@ spec = do
     it "is not commutative (via exists)" $
       exists $ \(x,y) -> x ⊕ y /= y ⊕ x
 
-    it "has a map-reduce" $
-      simpleMapReduce id (foldr (⊕) "") ["a","b","c","d"] `shouldBe` "abcd"
+    it "works correctly with a sequential map-reduce" $
+      property $ \a b c d -> (simpleMapReduce reverse (foldr (⊕) "") [a,b,c,d]) 
+                     `shouldBe` (reverse a) ⊕ (reverse b) ⊕ (reverse c) ⊕ (reverse d)
 
---    it "has some cases where parallel reduction deviates from sequential reduction" $
---      exists $ (\[a, b, c, d, e, f, g, h, j, k, l, m, o, p, q, r, s, t, u, v, w, x, y, z] -> 
---                  (parMapReduce id (foldr (⊕) "") [a, b, c, d, e, f, g, h, j, k, l, m, o, p, q, r, s, t, u, v, w, x, y, z])
---                     /= simpleMapReduce id (foldr (⊕) "") [a, b, c, d, e, f, g, h, j, k, l, m, o, p, q, r, s, t, u, v, w, x, y, z])
+    it "has some cases where parallel reduction deviates from sequential reduction" $
+      exists $ \() -> parMapReduce reverse (foldr (⊕) "") text
+                  /= simpleMapReduce reverse (foldr (⊕) "") text
     
 
 

@@ -2,38 +2,34 @@
 
 ## Introduction
 
-Quite a while back I wrote a larger article on patterns in functional programming
+Quite a while back I wrote a larger article on the algebraic foundation of software patterns
 which also covered the [MapReduce algorithm](https://thma.github.io/posts/2018-11-24-lambda-the-ultimate-pattern-factory.html#map-reduce).
 
-In that article I provided very simple implementation for sequential and parallel MapReduce 
-implementations based on [RealWorld Haskell](http://book.realworldhaskell.org/read/concurrent-and-multicore-programming.html).
-
-At that time I was researching the algebraic foundation of software patterns. 
-So I digged out a paper on [algebraic properties of distributed big data analytics](https://pdfs.semanticscholar.org/0498/3a1c0d6343e21129aaffca2a1b3eec419523.pdf),
+During the research digged out a paper on [algebraic properties of distributed big data analytics](https://pdfs.semanticscholar.org/0498/3a1c0d6343e21129aaffca2a1b3eec419523.pdf),
 which explained that a MapReduce will always work correctly when the intermediate data structure resulting from the
 `map`-phase is a Monoid under the `reduce` operation.
 
 For some reason, I was not convinced that this Monoid-condition was enough, because all the typical examples
 like word-frequency maps are even **commutative** Monoids under the respective reduce operation.
 
-So theory that I came up with was:
+So I came up with the following personal theory:
 
 > Only if the intermediate data structure resulting from the `map`-phase is a **commutative Monoid** 
-> under the `reduce` operation, then a massive parallel MapReduce will produce correct results.
+> under the `reduce`-operation, then a parallel MapReduce will produce correct results.
 
-I tried to prove this property using the Haskell 
-[QuickCheck property based test framework](https://wiki.haskell.org/Introduction_to_QuickCheck2).
+I tried to prove this property using the 
+[QuickCheck test framework](https://wiki.haskell.org/Introduction_to_QuickCheck2).
 
 Interestingly QuickCheck was able to find counter examples which proved my theory wrong!
-This finally convinced me that I was wrong, and after some deeper thinking I was also able to understand why.
+This finally convinced me that my theory was wrong, and after some deeper thinking I was also able to understand why.
 
 I was impressed by the power of QuickCheck and thus thought it might me a good idea to share 
 this lesson in falsification.
 
 ## Commutative Monoids
 
-In abstract algebra, a monoid is a set equipped with an associative 
-binary operation and an identity element.
+In abstract algebra, a monoid is a *set* equipped with an *associative 
+binary operation* and an *identity element*.
 
 The Simplest example are the natural numbers under addition with 0 as the identity (or neutral) element. 
 We can use QuickCheck to verify that indeed the Monoid laws are maintained.
@@ -88,7 +84,7 @@ Monoid
       +++ OK, passed 100 tests.
 ```
 
-So behind the scenes, QuickCheck has generated test data for 100 test cases for each
+So behind the scenes, QuickCheck has generated test data for 100 tests for each
 property under test. For all these data the test cases passed.
 
 This is definitely not a proof. But it gives us some confidence that our math text-books
@@ -162,7 +158,7 @@ But it is not commutative *in general* – that is for all possible arguments.
 We could rephrase this property as *"There exists at least one pair of arguments
 for which `(⊕)` is not commutative"*.
 
-QuickCheck does not ships with a mechanism for *existential quantification*. 
+QuickCheck does not come with a mechanism for *existential quantification*. 
 But as is has `forAll` that is *universal quantification*. So we can build our own
 tool for existential quantification 
 [based on a discussion on Stackoverflow](https://stackoverflow.com/questions/42764847/is-there-a-there-exists-quantifier-in-quickcheck).
@@ -185,3 +181,77 @@ for which `(⊕)` is not commutative" as follows:
       exists $ \(x,y) -> x ⊕ y /= y ⊕ x
 ```
 
+The output now fits much better into our intuitive understanding:
+
+```bash
+    is not commutative (via exists)
+      +++ OK, passed 1 test.
+
+```
+
+## Sequential MapReduce
+
+> MapReduce is a programming model and an associated implementation for processing and generating large data sets. 
+> Users specify **a map function** that processes a key/value pair to generate a set of intermediate key/value pairs, 
+> **and a reduce function** that merges all intermediate values associated with the same intermediate key.
+> 
+> [This] abstraction is inspired by the map and reduce primitives present in Lisp and many other functional languages. 
+> [Quoted from Google Research](https://storage.googleapis.com/pub-tools-public-publication-data/pdf/16cb30b4b92fd4989b8619a61752a2387c6dd474.pdf)
+
+I'm not going into more details here, as You'll find detailed information on this approach and a
+working example 
+[in my original article](https://thma.github.io/posts/2018-11-24-lambda-the-ultimate-pattern-factory.html#map-reduce).
+
+Here is the definition of a sequential MapReduce:
+
+```haskell
+simpleMapReduce 
+  :: (a -> b)   -- map function
+  -> ([b] -> c) -- reduce function
+  -> [a]        -- list to map over
+  -> c          -- result
+simpleMapReduce mapFunc reduceFunc = reduceFunc . map mapFunc
+```
+
+We can test the sequential MapReduce algorithm with the following property based test:
+
+```haskell
+    it "works correctly with a sequential map-reduce" $
+      property $ \a b c d -> (simpleMapReduce reverse (foldr (⊕) "") [a,b,c,d]) 
+                     `shouldBe` (reverse a) ⊕ (reverse b) ⊕ (reverse c) ⊕ (reverse d)
+```
+
+## Parallel MapReduce
+
+Now we come to the tricky part that kicked off this whole discussion: parallelism.
+
+We can define a parallel MapReduce implementation as follows (for more details see 
+[Real World Haskell, Chapter 24](http://book.realworldhaskell.org/read/concurrent-and-multicore-programming.html)):
+
+```haskell
+import           Control.Parallel (par)
+import           Control.Parallel.Strategies (using, parMap, rpar)
+
+parMapReduce 
+  :: (a -> b)   -- map function
+  -> ([b] -> c) -- reduce function
+  -> [a]        -- list to map over
+  -> c          -- result
+parMapReduce mapFunc reduceFunc input =
+    mapResult `par` reduceResult
+    where mapResult    = parMap rpar mapFunc input
+          reduceResult = reduceFunc mapResult `using` rpar
+```
+
+This implementation will start computing `mapResult` and `reduceResult` in parallel and finally returns `reduceResult`.
+The `mapResult` is computed with a parallelized `map` function `parMap`.
+The `reduceResult` is computed by applying a parallel reduction strategy `rpar`.
+
+I find it quite straightforward to understand that the `mapResult` can be massively parallelized by computing `mapFunc x` for each 
+element of the `input` list in parallel. As all lements of `input` are completely independent from each other by virtue of
+referential transparency and immutability.
+
+For the `reduceResult` part I was concerned that the non-deterministic behavior of the parallel reduction might influence the
+sequence of elements when applying the `(⊕)` operation.
+
+Say we evaluate the following in parallel:

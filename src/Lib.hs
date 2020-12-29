@@ -1,7 +1,7 @@
 module Lib where
 
-import           Control.Parallel (pseq)
-import           Control.Parallel.Strategies (rseq, using, parMap)
+import           Control.Parallel (par)
+import           Control.Parallel.Strategies (using, parMap, rpar)
 
 simpleMapReduce 
   :: (a -> b)   -- map function
@@ -17,8 +17,20 @@ parMapReduce
   -> [a]        -- list to map over
   -> c          -- result
 parMapReduce mapFunc reduceFunc input =
-    mapResult `pseq` reduceResult
-    where mapResult    = parMap rseq mapFunc input
-          reduceResult = reduceFunc mapResult `using` rseq
+    mapResult `par` reduceResult
+    where mapResult    = parMap rpar mapFunc input
+          reduceResult = reduceFunc mapResult `using` rpar
+          
+(⊕) :: String -> String -> String
+(⊕) a b = a ++ b
+
+
+text :: [String]
+text = words $ "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet."
+
+-- " olleh lla raed sklof"
+
+x :: String
+x = ( reverse " olleh" ⊕ reverse " lla" ⊕ reverse " raed" ⊕ reverse " sklof")          
 
 
