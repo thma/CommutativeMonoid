@@ -30,7 +30,7 @@ text = words $ "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed dia
 
 -- " olleh lla raed sklof"
 
-x :: String
-x = ( reverse " olleh" ⊕ reverse " lla" ⊕ reverse " raed" ⊕ reverse " sklof")          
+text1 :: [String]
+text1 =  [" olleh"," ym"," raed"," sklof"]          
 
 

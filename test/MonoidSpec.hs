@@ -16,13 +16,28 @@ instance Arbitrary Natural where
     return $ naturalFromInteger nonNegative
 
 -- see https://stackoverflow.com/questions/42764847/is-there-a-there-exists-quantifier-in-quickcheck
-exists :: (Show a, Arbitrary a) 
-       => (a -> Bool) -> Property
-exists = forSome $ resize 10000 arbitrary
+-- exists :: (Show a, Arbitrary a) 
+--        => (a -> Bool) -> Property
+-- exists = forSome $ resize 10 arbitrary
     
-forSome :: (Show a, Testable prop)
-        => Gen a -> (a -> prop) -> Property
-forSome gen prop = once $ disjoin $ replicate 10000 $ forAll gen prop
+-- forSome :: (Show a, Testable prop)
+--         => Gen a -> (a -> prop) -> Property
+-- forSome gen prop = once $ disjoin $ replicate 10 $ forAll gen prop
+
+exists :: (Show a, Arbitrary a) 
+        => (a -> Bool) -> Property
+exists prop = exists' (resize 10000 arbitrary) prop
+
+exists' :: Gen a -> (a -> Bool) -> Property
+exists' gen prop = property (exists'' 10000 gen prop)
+
+exists'' :: Int -> Gen a -> (a -> Bool) -> Gen Bool
+exists'' 0 _ _ = return False
+exists'' n gen prop = do
+  a <- gen
+  if prop a
+    then return True
+    else exists'' (n - 1) gen prop
 
 spec :: Spec
 spec = do
@@ -66,12 +81,10 @@ spec = do
                      `shouldBe` (reverse a) ⊕ (reverse b) ⊕ (reverse c) ⊕ (reverse d)
 
     it "has some cases where parallel reduction deviates from sequential reduction" $
-      exists $ \() -> parMapReduce reverse (foldr (⊕) "") text
-                  /= simpleMapReduce reverse (foldr (⊕) "") text
+      exists $ \() -> parMapReduce reverse (foldr (⊕) "") text1
+                  /= simpleMapReduce reverse (foldr (⊕) "") text1
     
-
-
-
-
-
+    it "infact parallel reduction always equals sequential reduction" $
+      property $ \a b c d -> (simpleMapReduce reverse (foldr (⊕) "") [a,b,c,d])
+                    `shouldBe` (parMapReduce reverse (foldr (⊕) "") [a,b,c,d])
 

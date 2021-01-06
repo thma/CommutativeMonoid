@@ -247,7 +247,7 @@ This implementation will start computing `mapResult` and `reduceResult` in paral
 The `mapResult` is computed with a parallelized `map` function `parMap`.
 The `reduceResult` is computed by applying a parallel reduction strategy `rpar`.
 
-I find it quite straightforward to understand that the `mapResult` can be massively parallelized by computing `mapFunc x` for each 
+I find it quite straightforward to understand that the `mapResult` can be massively parallelized by computing `mapFunc x` for each
 element of the `input` list in parallel. As all lements of `input` are completely independent from each other by virtue of
 referential transparency and immutability.
 
@@ -255,3 +255,96 @@ For the `reduceResult` part I was concerned that the non-deterministic behavior 
 sequence of elements when applying the `(⊕)` operation.
 
 Say we evaluate the following in parallel:
+
+```haskell
+x = parMapReduce reverse (foldr (⊕) "") [" olleh"," ym"," raed"," sklof"]     
+```
+
+My intuition was that if for instance the `parMap` would first be ready with the
+second and fourth element of the input list, then then reduction with `(foldr (⊕) "")` would immediately start with those two elements, thus resulting in
+a wrong sequence of concatenation: `my folks ...` instead of `hello my dear folks `.
+
+I wrote a property based test to give evidence of this assumption:
+
+```haskell
+text = [" olleh"," ym"," raed"," sklof"]
+
+    it "has some cases where parallel reduction deviates from sequential reduction" $
+      exists $ \() -> parMapReduce reverse (foldr (⊕) "") text
+                  /= simpleMapReduce reverse (foldr (⊕) "") text
+```
+
+But it turns out that QuickCheck does not find any evidence for this assumption:
+
+```bash
+    has some cases where parallel reduction deviates from sequential reduction FAILED [1]
+
+Failures:
+
+  test\MonoidSpec.hs:83:5: 
+  1) Monoid, The Monoid 'Strings under concatenation', has some cases where parallel reduction deviates from sequential reduction
+       Falsified (after 1 test):
+```
+
+I began verifying my setup. I made sure that the `package.yaml` contains the right GHC options to provide parallel execution of the test suite:
+
+```yaml
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+```
+
+I also amde sure that all cores of my CPU were actually running at 100% utilization during the
+parallel tests.
+
+I also increased the number of test executions to give better chances to hit any rare cases.
+
+But to no avail.
+
+As QuickCheck was consistently telling me: "you are wrong", I finally began admitting "Well, maybe I'm wrong and should have a deeper look at the issue".
+
+## Rethinking parallel reduction
+
+Giving a closer look at the definition of the parallel MapReduce will allow us to better
+understand what's actually going on:
+
+```haskell
+import           Control.Parallel (par)
+import           Control.Parallel.Strategies (using, parMap, rpar)
+
+parMapReduce 
+  :: (a -> b)   -- map function
+  -> ([b] -> c) -- reduce function
+  -> [a]        -- list to map over
+  -> c          -- result
+parMapReduce mapFunc reduceFunc input =
+    mapResult `par` reduceResult
+    where mapResult    = parMap rpar mapFunc input
+          reduceResult = reduceFunc mapResult `using` rpar
+
+-- and now an actual example usage:
+x = parMapReduce reverse (foldr (⊕) "") [" olleh"," ym"," raed"," sklof"]     
+```
+
+In this concrete example `mapResult` will be:
+
+```haskell
+mapResult    = parMap rpar reverse [" olleh"," ym"," raed"," sklof"]
+```
+
+parMap is defined as follows:
+
+```haskell
+parMap :: Strategy b -> (a -> b) -> [a] -> [b]
+parMap strat f = (`using` parList strat) . map f
+```
+
+The `parMap` evaluation strategy will spark a parallel evaluation for each element of `input` list. Nevertheless
+
+In this concrete example `reduceResult` will be:
+
+```haskell
+reduceResult = (foldr (⊕) "") mapResult `using` rpar
+```
+
