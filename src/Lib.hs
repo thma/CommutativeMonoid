@@ -33,4 +33,5 @@ text = words $ "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed dia
 text1 :: [String]
 text1 =  [" olleh"," ym"," raed"," sklof"]          
 
-
+--test :: [Integer]
+test = foldMap reverse ["hello", "my", "old", "friend"]

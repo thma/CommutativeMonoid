@@ -225,6 +225,45 @@ We can test the sequential MapReduce algorithm with the following property based
 
 Now we come to the tricky part that kicked off this whole discussion: parallelism.
 
+As an example we consider a simple MapReduce, taking an input list of `Int`s, computing their squares and computing
+the sum of these squares:
+
+```haskell
+λ> simpleMapReduce (^2) (foldr (+) 0) [1,2,3,4]
+30
+```
+
+Now we try to design this as a massively parallelized algorithm:
+
+1. Mapping of `(^2)` over the input-list `[1,2,3,4]` would be started in a parallel to the reduction of the intermediary 
+list of squares by `(foldr (+) 0)`. 
+
+2. The mapping phase will be executed as a set of parallel computations (one for each element of the input list).
+
+3. The reduction phase will also be executed as a set of parallel computations.
+
+Of course the reduction phase can begin only when at least one list element is squared.
+So in effect the mapping process would start first. The parallel computation of squares will result in a non-deterministic
+sequence of computations. In particular it is not guaranteed that all elements of the input list are squared in their
+original list order.
+So it might for example happen that `3` is squared first. Now the reduction phase would receive it's first input `9`, and 
+would start reduction, that is compute `9 + 0`.
+
+Next the first element of the input `1`, then the fourth `4`and finally the second element `2` would be squared,
+resulting in a reduction sequence of `9 + 1 + 16 + 4`. As this sums up to `30` everything is fine. 
+
+But now imagine we would parallelize:
+
+```haskell
+λ> simpleMapReduce reverse (foldr (++) "") [" olleh"," ym"," raed"," sklof"]
+"hello my dear folks "
+```
+
+
+
+3. now
+   
+
 We can define a parallel MapReduce implementation as follows (for more details see 
 [Real World Haskell, Chapter 24](http://book.realworldhaskell.org/read/concurrent-and-multicore-programming.html)):
 

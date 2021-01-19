@@ -15,29 +15,29 @@ instance Arbitrary Natural where
     NonNegative nonNegative <- arbitrary
     return $ naturalFromInteger nonNegative
 
--- see https://stackoverflow.com/questions/42764847/is-there-a-there-exists-quantifier-in-quickcheck
--- exists :: (Show a, Arbitrary a) 
---        => (a -> Bool) -> Property
--- exists = forSome $ resize 10 arbitrary
-    
--- forSome :: (Show a, Testable prop)
---         => Gen a -> (a -> prop) -> Property
--- forSome gen prop = once $ disjoin $ replicate 10 $ forAll gen prop
-
+--see https://stackoverflow.com/questions/42764847/is-there-a-there-exists-quantifier-in-quickcheck
 exists :: (Show a, Arbitrary a) 
-        => (a -> Bool) -> Property
-exists prop = exists' (resize 10000 arbitrary) prop
+       => (a -> Bool) -> Property
+exists = forSome $ resize 100 arbitrary
+    
+forSome :: (Show a, Testable prop)
+        => Gen a -> (a -> prop) -> Property
+forSome gen prop = once $ disjoin $ replicate 100 $ forAll gen prop
 
-exists' :: Gen a -> (a -> Bool) -> Property
-exists' gen prop = property (exists'' 10000 gen prop)
+-- exists :: (Show a, Arbitrary a) 
+--         => (a -> Bool) -> Property
+-- exists prop = exists' (resize 10000 arbitrary) prop
 
-exists'' :: Int -> Gen a -> (a -> Bool) -> Gen Bool
-exists'' 0 _ _ = return False
-exists'' n gen prop = do
-  a <- gen
-  if prop a
-    then return True
-    else exists'' (n - 1) gen prop
+-- exists' :: Gen a -> (a -> Bool) -> Property
+-- exists' gen prop = property (exists'' 10000 gen prop)
+
+-- exists'' :: Int -> Gen a -> (a -> Bool) -> Gen Bool
+-- exists'' 0 _ _ = return False
+-- exists'' n gen prop = do
+--   a <- gen
+--   if prop a
+--     then return True
+--     else exists'' (n - 1) gen prop
 
 spec :: Spec
 spec = do
