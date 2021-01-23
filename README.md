@@ -20,8 +20,8 @@ So I came up with the following personal theory:
 I tried to prove this property using the 
 [QuickCheck test framework](https://wiki.haskell.org/Introduction_to_QuickCheck2).
 
-Interestingly QuickCheck was able to find counter examples which proved my theory wrong!
-This finally convinced me that my theory was wrong, and after some deeper thinking I was also able to understand why.
+Interestingly QuickCheck was able to find counter examples!
+This finally convinced me that my theory was wrong, and after a little deeper thought, I could understand why.
 
 I was impressed by the power of QuickCheck and thus thought it might me a good idea to share 
 this lesson in falsification.
@@ -225,7 +225,7 @@ We can test the sequential MapReduce algorithm with the following property based
 
 Now we come to the tricky part that kicked off this whole discussion: parallelism.
 
-As an example we consider a simple MapReduce, taking an input list of `Int`s, computing their squares and computing
+As an example we consider a simple sequential MapReduce, taking an input list of `Int`s, computing their squares and computing
 the sum of these squares:
 
 ```haskell
@@ -233,7 +233,7 @@ the sum of these squares:
 30
 ```
 
-Now we try to design this as a massively parallelized algorithm:
+Let's try to design this as a massively parallelized algorithm:
 
 1. Mapping of `(^2)` over the input-list `[1,2,3,4]` would be started in a parallel to the reduction of the intermediary 
 list of squares by `(foldr (+) 0)`. 
@@ -243,26 +243,38 @@ list of squares by `(foldr (+) 0)`.
 3. The reduction phase will also be executed as a set of parallel computations.
 
 Of course the reduction phase can begin only when at least one list element is squared.
-So in effect the mapping process would start first. The parallel computation of squares will result in a non-deterministic
-sequence of computations. In particular it is not guaranteed that all elements of the input list are squared in their
+So in effect the mapping process would have to start first. The parallel computation of squares will result in a non-deterministic
+sequence of computations. In particular it is not guaranteed that all elements of the input list are processed in the
 original list order.
 So it might for example happen that `3` is squared first. Now the reduction phase would receive it's first input `9`, and 
 would start reduction, that is compute `9 + 0`.
 
+Let's assume the following random sequence of mapping steps:
 Next the first element of the input `1`, then the fourth `4`and finally the second element `2` would be squared,
-resulting in a reduction sequence of `9 + 1 + 16 + 4`. As this sums up to `30` everything is fine. 
+resulting in a reduction sequence of `4 + 16 + 1 + 9 + 0`. As this sums up to `30` everything is fine. Addition is commutative, so
+changing the sequence of reduction steps does not affect the overall result.
 
 But now imagine we would parallelize:
 
 ```haskell
-λ> simpleMapReduce reverse (foldr (++) "") [" olleh"," ym"," raed"," sklof"]
+λ> simpleMapReduce reverse (foldr (⊕) "") [" olleh"," ym"," raed"," sklof"]
 "hello my dear folks "
 ```
 
+If we assume the same sequence as above, the third element of the input list would be reversed first, resulting in a first reduction step `"dear " ⊕ ""`. Next the first, the fourth and finally the second element would be reversed, resulting
+in a reduction sequence of `"my " ⊕ "folks " ⊕ "hello " ⊕ "dear " ⊕ "" = "my folks hello dear "`.
+As string concatenation is not commutative it does not really come as a surprise that random changes to the reduction
+sequence will eventually result in wrong computations.
 
+So our conclusion is: 
 
-3. now
-   
+> If the MapReduce algorithm is parallelized in the way that I outlined above &mdash; which may result in random changes of the 
+> sequence of list elements in the reduction phase &mdash; it will only work correct if the intermediary data structure is a 
+> commutative monoid under the reduce operation.
+
+In the following section we will implement a parallel mad-reduce in Haskell in try to validate our theory with property based testing.
+
+## Parallel MapReduce in Haskell
 
 We can define a parallel MapReduce implementation as follows (for more details see 
 [Real World Haskell, Chapter 24](http://book.realworldhaskell.org/read/concurrent-and-multicore-programming.html)):
@@ -282,28 +294,11 @@ parMapReduce mapFunc reduceFunc input =
           reduceResult = reduceFunc mapResult `using` rpar
 ```
 
-This implementation will start computing `mapResult` and `reduceResult` in parallel and finally returns `reduceResult`.
+This implementation will start computing `mapResult` and `reduceResult` in parallel and finally return `reduceResult`.
 The `mapResult` is computed with a parallelized `map` function `parMap`.
 The `reduceResult` is computed by applying a parallel reduction strategy `rpar`.
 
-I find it quite straightforward to understand that the `mapResult` can be massively parallelized by computing `mapFunc x` for each
-element of the `input` list in parallel. As all lements of `input` are completely independent from each other by virtue of
-referential transparency and immutability.
-
-For the `reduceResult` part I was concerned that the non-deterministic behavior of the parallel reduction might influence the
-sequence of elements when applying the `(⊕)` operation.
-
-Say we evaluate the following in parallel:
-
-```haskell
-x = parMapReduce reverse (foldr (⊕) "") [" olleh"," ym"," raed"," sklof"]     
-```
-
-My intuition was that if for instance the `parMap` would first be ready with the
-second and fourth element of the input list, then then reduction with `(foldr (⊕) "")` would immediately start with those two elements, thus resulting in
-a wrong sequence of concatenation: `my folks ...` instead of `hello my dear folks `.
-
-I wrote a property based test to give evidence of this assumption:
+Next we will write a property based test to valdate our theory:
 
 ```haskell
 text = [" olleh"," ym"," raed"," sklof"]
@@ -325,6 +320,9 @@ Failures:
        Falsified (after 1 test):
 ```
 
+After seeing this result I had to deal with some growing cognitive dissonance similar to [this flat earther](this random sequence)...
+
+
 I began verifying my setup. I made sure that the `package.yaml` contains the right GHC options to provide parallel execution of the test suite:
 
 ```yaml
@@ -343,7 +341,7 @@ But to no avail.
 
 As QuickCheck was consistently telling me: "you are wrong", I finally began admitting "Well, maybe I'm wrong and should have a deeper look at the issue".
 
-## Rethinking parallel reduction
+## Rethinking parallel evaluation
 
 Giving a closer look at the definition of the parallel MapReduce will allow us to better
 understand what's actually going on:
@@ -379,11 +377,30 @@ parMap :: Strategy b -> (a -> b) -> [a] -> [b]
 parMap strat f = (`using` parList strat) . map f
 ```
 
-The `parMap` evaluation strategy will spark a parallel evaluation for each element of `input` list. Nevertheless
+The `parMap` evaluation strategy will spark a parallel evaluation for each element of `input` list. 
+Nevertheless the actual sequence of elements will not be changed as internally the classical sequential
+`map` function is used. So the reduce phase will never be served a changed sequence of elements by the map phase!
 
-In this concrete example `reduceResult` will be:
+So `mapResult` will always be `["hello", "my ", "dear ", "folks"]`.
+
+Thus `reduceResult` will be:
 
 ```haskell
-reduceResult = (foldr (⊕) "") mapResult `using` rpar
+reduceResult = (foldr (⊕) "") ["hello", "my ", "dear ", "folks"] `using` rpar
 ```
 
+Again the traditional semantics of `foldr` is maintained, only we allow for parallel evaluation for parts of the reduction phase.
+
+So the final output will always be `"hello my dear folks"`. This is exactly what the failed test cased was telling us:
+
+> There do not exist any cases where sequential and parallel MapReduce result in deviating results!
+
+We can again evaluate our improved theory with a QuickCheck test:
+
+```haskell
+    it "parallel reduction always equals sequential reduction" $
+      property $ \a b c d -> simpleMapReduce reverse (foldr (⊕) "") [a,b,c,d]
+                     `shouldBe` parMapReduce reverse (foldr (⊕) "") [a,b,c,d]
+```
+
+And &mdash; not so surprisingly &mdash; this test succeeds!
