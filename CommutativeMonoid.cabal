@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 171688e304383fa87532754d3e348d57e35d82927989c287d6c5c83ed12dc6a9
+-- hash: 1ece78ba23455997c952b92c482dff6670aeed4d28243ffd821570293ac56129
 
 name:           CommutativeMonoid
 version:        0.1.0.0
@@ -43,7 +43,7 @@ executable CommutativeMonoid
       Paths_CommutativeMonoid
   hs-source-dirs:
       app
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -O2 -threaded -rtsopts -eventlog -with-rtsopts=-N
   build-depends:
       CommutativeMonoid
     , base >=4.7 && <5
@@ -60,7 +60,7 @@ test-suite CommutativeMonoid-test
       Paths_CommutativeMonoid
   hs-source-dirs:
       test
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -O2 -threaded -rtsopts -eventlog -with-rtsopts=-N
   build-depends:
       CommutativeMonoid
     , QuickCheck

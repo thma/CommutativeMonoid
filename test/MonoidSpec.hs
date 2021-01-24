@@ -58,33 +58,32 @@ spec = do
 --      exists $ \(x, y) -> x + y /= (y + x :: Natural)
   
   
-  describe "The Monoid 'Strings under concatenation'" $ do
-    
+  describe "The Monoid 'Strings under concatenation'" $ do    
     it "is associative" $ 
       property $ \x y z -> ((x ⊕ y) ⊕ z) `shouldBe` (x ⊕ (y ⊕ z))
       
     it "has \"\" as left and right identity element" $
       property $ \x -> (x ⊕ "" `shouldBe` x) .&&. ("" ⊕ x `shouldBe` x)
       
---    it "is NOT commutative" $
---      property $ \x y -> x ⊕ y `shouldNotBe` y ⊕ x
---
---    it "is not commutative (with filtering)" $
---      property $ \x y ->  x /= "" && y /= "" && x /= y
---                          ==> (x ⊕ y) /= (y ⊕ x)
+    --    it "is NOT commutative" $
+    --      property $ \x y -> x ⊕ y `shouldNotBe` y ⊕ x
+    --
+    --    it "is not commutative (with filtering)" $
+    --      property $ \x y ->  x /= "" && y /= "" && x /= y
+    --                          ==> (x ⊕ y) /= (y ⊕ x)
 
     it "is not commutative (via exists)" $
       exists $ \(x,y) -> x ⊕ y /= y ⊕ x
 
     it "works correctly with a sequential map-reduce" $
-      property $ \a b c d -> (simpleMapReduce reverse (foldr (⊕) "") [a,b,c,d]) 
-                     `shouldBe` (reverse a) ⊕ (reverse b) ⊕ (reverse c) ⊕ (reverse d)
+      property $ \a b c d -> simpleMapReduce reverse (foldr (⊕) "") [a,b,c,d]
+                      `shouldBe` reverse a ⊕ reverse b ⊕ reverse c ⊕ reverse d
 
     it "has some cases where parallel reduction deviates from sequential reduction" $
       exists $ \() -> parMapReduce reverse (foldr (⊕) "") text1
-                  /= simpleMapReduce reverse (foldr (⊕) "") text1
-    
-    it "infact parallel reduction always equals sequential reduction" $
-      property $ \a b c d -> (simpleMapReduce reverse (foldr (⊕) "") [a,b,c,d])
-                    `shouldBe` (parMapReduce reverse (foldr (⊕) "") [a,b,c,d])
+                /= simpleMapReduce reverse (foldr (⊕) "") text1
+
+    it "parallel reduction always equals sequential reduction" $
+      property $ \a b c d -> simpleMapReduce reverse (foldr (⊕) "") [a,b,c,d]
+                      `shouldBe` parMapReduce reverse (foldr (⊕) "") [a,b,c,d]
 

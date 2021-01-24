@@ -7,7 +7,7 @@ which also covered the [MapReduce algorithm](https://thma.github.io/posts/2018-1
 
 During the research digged out a paper on [algebraic properties of distributed big data analytics](https://pdfs.semanticscholar.org/0498/3a1c0d6343e21129aaffca2a1b3eec419523.pdf),
 which explained that a MapReduce will always work correctly when the intermediate data structure resulting from the
-`map`-phase is a Monoid under the `reduce` operation.
+`map`-phase is a Monoid under the `reduce`-operation.
 
 For some reason, I was not convinced that this Monoid-condition was enough, because all the typical examples
 like word-frequency maps are even **commutative** Monoids under the respective reduce operation.
@@ -23,7 +23,7 @@ I tried to prove this property using the
 Interestingly QuickCheck was able to find counter examples!
 This finally convinced me that my theory was wrong, and after a little deeper thought, I could understand why.
 
-I was impressed by the power of QuickCheck and thus thought it might me a good idea to share 
+I was impressed with the power of QuickCheck, so I thought it would be a good idea to share 
 this lesson in falsification.
 
 ## Commutative Monoids
@@ -31,8 +31,8 @@ this lesson in falsification.
 In abstract algebra, a monoid is a *set* equipped with an *associative 
 binary operation* and an *identity element*.
 
-The Simplest example are the natural numbers under addition with 0 as the identity (or neutral) element. 
-We can use QuickCheck to verify that indeed the Monoid laws are maintained.
+The simplest example for a *commutative Monoid* are the natural numbers under addition with 0 as the identity (or neutral) element. 
+We can use QuickCheck to verify that indeed the Monoid laws plus commutativity are maintained.
 
 If we want to use `GHC.Natural` type to represent natural numbers, 
 we first have to make `Natural` instantiate the `Arbitrary` type class which is
@@ -103,7 +103,7 @@ Now let's try to formalize these intuitions as QuickCheck property based tests a
 First I'm introducing an alias for `(++)`, as it is defined on any list type,
 it would be required to have type signatures in all properties (as we had all those `:: Natural` 
 signatures in the examples above). So I define an operation `(⊕)` which is
-only available on `String`s:
+only defined on `String` instances:
 
 ```haskell
 (⊕) :: String -> String -> String
@@ -250,7 +250,7 @@ So it might for example happen that `3` is squared first. Now the reduction phas
 would start reduction, that is compute `9 + 0`.
 
 Let's assume the following random sequence of mapping steps:
-Next the first element of the input `1`, then the fourth `4`and finally the second element `2` would be squared,
+Next the first element of the input `1`, then the fourth `4` and finally the second element `2` would be squared,
 resulting in a reduction sequence of `4 + 16 + 1 + 9 + 0`. As this sums up to `30` everything is fine. Addition is commutative, so
 changing the sequence of reduction steps does not affect the overall result.
 
@@ -272,7 +272,7 @@ So our conclusion is:
 > sequence of list elements in the reduction phase &mdash; it will only work correct if the intermediary data structure is a 
 > commutative monoid under the reduce operation.
 
-In the following section we will implement a parallel mad-reduce in Haskell in try to validate our theory with property based testing.
+In the following section we will implement a parallel MapReduce in Haskell in try to validate our theory with property based testing.
 
 ## Parallel MapReduce in Haskell
 
@@ -305,7 +305,7 @@ text = [" olleh"," ym"," raed"," sklof"]
 
     it "has some cases where parallel reduction deviates from sequential reduction" $
       exists $ \() -> parMapReduce reverse (foldr (⊕) "") text
-                  /= simpleMapReduce reverse (foldr (⊕) "") text
+                /= simpleMapReduce reverse (foldr (⊕) "") text
 ```
 
 But it turns out that QuickCheck does not find any evidence for this assumption:
@@ -320,7 +320,7 @@ Failures:
        Falsified (after 1 test):
 ```
 
-After seeing this result I had to deal with some growing cognitive dissonance similar to [this flat earther](this random sequence)...
+After seeing this result I had to deal with some growing cognitive dissonance similar to [this flat earther](https://www.youtube.com/watch?v=EBtx1MDi5tY)...
 
 
 I began verifying my setup. I made sure that the `package.yaml` contains the right GHC options to provide parallel execution of the test suite:
@@ -332,7 +332,7 @@ I began verifying my setup. I made sure that the `package.yaml` contains the rig
     - -with-rtsopts=-N
 ```
 
-I also amde sure that all cores of my CPU were actually running at 100% utilization during the
+I also made sure that all cores of my CPU were actually running at 100% utilization during the
 parallel tests.
 
 I also increased the number of test executions to give better chances to hit any rare cases.
@@ -341,7 +341,7 @@ But to no avail.
 
 As QuickCheck was consistently telling me: "you are wrong", I finally began admitting "Well, maybe I'm wrong and should have a deeper look at the issue".
 
-## Rethinking parallel evaluation
+## Rethinking parallel evaluation in Haskell
 
 Giving a closer look at the definition of the parallel MapReduce will allow us to better
 understand what's actually going on:
@@ -379,9 +379,10 @@ parMap strat f = (`using` parList strat) . map f
 
 The `parMap` evaluation strategy will spark a parallel evaluation for each element of `input` list. 
 Nevertheless the actual sequence of elements will not be changed as internally the classical sequential
-`map` function is used. So the reduce phase will never be served a changed sequence of elements by the map phase!
+`map` function is used which will not change the sequence of elements. So the reduce phase will never receive a changed sequence of elements from the map phase,
+even if `map`-computations for the individual list elements might be executed in random order!
 
-So `mapResult` will always be `["hello", "my ", "dear ", "folks"]`.
+`mapResult` will always be `["hello", "my ", "dear ", "folks"]`.
 
 Thus `reduceResult` will be:
 
@@ -404,3 +405,9 @@ We can again evaluate our improved theory with a QuickCheck test:
 ```
 
 And &mdash; not so surprisingly &mdash; this test succeeds!
+
+If you want to know more about parallel evaluation in Haskell I highly recommend the exellent
+[Parallel and Concurrent Programming in Haskell by Simon Marlow](https://www.oreilly.com/library/view/parallel-and-concurrent/9781449335939/ch02.html).
+
+## Conclusion
+
