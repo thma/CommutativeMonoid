@@ -409,5 +409,15 @@ And &mdash; not so surprisingly &mdash; this test succeeds!
 If you want to know more about parallel evaluation in Haskell I highly recommend the exellent
 [Parallel and Concurrent Programming in Haskell by Simon Marlow](https://www.oreilly.com/library/view/parallel-and-concurrent/9781449335939/ch02.html).
 
-## Conclusion
+## Conclusions
+
+1. The parallelism as provided by the Haskell `Control.Strategies` package maintains the semantic of sequential code and thus a parallel MapReduce maintains the same properties as its sequential counterpart.
+So a parallel MapReduce will still work correctly if the intermediate data structure resulting from the `map`-phase is just a **Monoid** &ndash; not necessarily a commutative Monoid.
+
+2. Nevertheless there may be implementations that do not strictly maintain the original order of the input data during the `map`- and `reduce`-phases. With such implementations the intermediate data structure resulting from the `map`-phase must be a **commutative Monoid** under the `reduce`-operation to produce correct results.
+
+3. Property based testing with QuickCheck is a powerful tool to verify assumptions about a given code-base. I really like using it as intended by [Karl Poppers Theory of Falsification](https://www.simplypsychology.org/Karl-Popper.html): 
+- Derive hypothesis from your theory which can be experimentally tested.
+- Perform experiments that test your hypothesis
+- If the experiments can not validate the hypothesis, the theory is false.
 
