@@ -2,6 +2,9 @@
 
 ## Introduction
 
+<script type="text/javascript"
+        src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
 Quite a while back I wrote a larger article on the algebraic foundation of software patterns
 which also covered the [MapReduce algorithm](https://thma.github.io/posts/2018-11-24-lambda-the-ultimate-pattern-factory.html#map-reduce).
 
