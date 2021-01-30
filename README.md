@@ -158,6 +158,10 @@ But it is not commutative *in general* – that is for all possible arguments.
 We could rephrase this property as *"There exists at least one pair of arguments
 for which `(⊕)` is not commutative"*.
 
+<p><span class="math display">\[\exists (x,y) \left [  x \oplus y \neq y \oplus x \right ] 
+  \equiv 
+  \neg \forall (x,y) \left [ x \oplus y = y \oplus x \right ]\]</span></p>
+
 QuickCheck does not come with a mechanism for *existential quantification*. 
 But as is has `forAll` that is *universal quantification*. So we can build our own
 tool for existential quantification 
