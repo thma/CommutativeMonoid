@@ -3,9 +3,6 @@
 
 module MonoidSpec where
 
---hiding (it)
--- import           TestUtils             (it)
-
 import           GHC.Natural              (Natural, naturalFromInteger)
 import           Lib
 import           Test.Hspec
@@ -19,12 +16,12 @@ instance Arbitrary Natural where
 
 --see https://stackoverflow.com/questions/42764847/is-there-a-there-exists-quantifier-in-quickcheck
 exists :: (Show a, Arbitrary a) => (a -> Bool) -> Property
-exists = forSome $ resize 1000 arbitrary
+exists = forSome $ resize 10000 arbitrary
 
 forSome :: (Show a, Testable prop) => Gen a -> (a -> prop) -> Property
 forSome gen prop =
   mapResult (\r -> r {P.reason = "No witness found.", P.callbacks = []}) $
-    once $ disjoin $ replicate 1000 $ forAll gen prop
+    once $ disjoin $ replicate 10000 $ forAll gen prop
 
 spec :: Spec
 spec = do
@@ -68,10 +65,10 @@ spec = do
 
     it "has some cases where parallel reduction deviates from sequential reduction" $
       exists $ \() ->
-        parMapReduce reverse (foldr (⊕) "") text1
-          /= simpleMapReduce reverse (foldr (⊕) "") text1
+        parMapReduce reverse (foldr (⊕) "") text
+          /= simpleMapReduce reverse (foldr (⊕) "") text
 
     it "parallel reduction always equals sequential reduction" $
-      property $ \a b c d ->
-        simpleMapReduce reverse (foldr (⊕) "") [a, b, c, d]
-          `shouldBe` parMapReduce reverse (foldr (⊕) "") [a, b, c, d]
+      property $ \l ->
+        simpleMapReduce reverse (foldr (⊕) "") l
+          `shouldBe` parMapReduce reverse (foldr (⊕) "") l
