@@ -16,12 +16,12 @@ instance Arbitrary Natural where
 
 --see https://stackoverflow.com/questions/42764847/is-there-a-there-exists-quantifier-in-quickcheck
 exists :: (Show a, Arbitrary a) => (a -> Bool) -> Property
-exists = forSome $ resize 10000 arbitrary
+exists = forSome $ resize 100 arbitrary
 
 forSome :: (Show a, Testable prop) => Gen a -> (a -> prop) -> Property
 forSome gen prop =
   mapResult (\r -> r {P.reason = "No witness found.", P.callbacks = []}) $
-    once $ disjoin $ replicate 10000 $ forAll gen prop
+    once $ disjoin $ replicate 100 $ forAll gen prop
 
 spec :: Spec
 spec = do
@@ -36,7 +36,7 @@ spec = do
       property $ \x y -> x + y `shouldBe` (y + x :: Natural)
 
     it "is commutative (via forAll)" $
-      forAll (resize 10000 arbitrary) $ \(x, y) -> x + y == (y + x :: Natural)
+      forAll (resize 1000 arbitrary) $ \(x, y) -> x + y == (y + x :: Natural)
 
     it "is NOT commutative (via exists)" $
       exists $ \(x, y) -> x + y /= (y + x :: Natural)
@@ -64,7 +64,7 @@ spec = do
           `shouldBe` reverse a ⊕ reverse b ⊕ reverse c ⊕ reverse d
 
     it "has some cases where parallel reduction deviates from sequential reduction" $
-      exists $ \() ->
+      exists $ \text ->
         parMapReduce reverse (foldr (⊕) "") text
           /= simpleMapReduce reverse (foldr (⊕) "") text
 
